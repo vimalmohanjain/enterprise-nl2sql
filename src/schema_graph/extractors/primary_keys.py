@@ -1,10 +1,9 @@
-from abc import ABC, abstractmethod
 from sqlglot import expressions as exp
 from .base import BaseExtractor
 from ..context import CreateTableContext
 
 class ColumnPrimaryKeyExtractor(BaseExtractor):
-    def extract(self, contexts: CreateTableContext):
+    def extract(self, contexts: list[CreateTableContext]) -> None:
         """Extract primary key information from the given context."""
         for ctx in contexts:
             for column_def in ctx.create.find_all(exp.ColumnDef):
@@ -19,7 +18,7 @@ class ColumnPrimaryKeyExtractor(BaseExtractor):
                         column.is_primary_key = True
 
 class TablePrimaryKeyExtractor(BaseExtractor):
-    def extract(self, contexts: CreateTableContext) -> None:
+    def extract(self, contexts: list[CreateTableContext]) -> None:
         """Extract primary key information from the given context."""
         for ctx in contexts:
             pk = ctx.create.find(exp.PrimaryKey)

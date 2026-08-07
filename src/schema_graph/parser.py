@@ -1,9 +1,10 @@
 import sqlglot
 from sqlglot import expressions as exp
 from pathlib import Path
-from os import PathLike, path
+from os import PathLike
 from .context import CreateTableContext
 from .extractors import (
+    BaseExtractor,
     ColumnExtractor,
     ColumnPrimaryKeyExtractor,
     TablePrimaryKeyExtractor,
@@ -12,22 +13,21 @@ from .extractors import (
 from .models import (
     DatabaseSchema,
     Table,
-    Column,
 )
 
 class SchemaParser:
     def __init__(self):
-        self.extractors = (
+        self._extractors:tuple[BaseExtractor, ...]  = (
             ColumnExtractor(),
             ColumnPrimaryKeyExtractor(),
             TablePrimaryKeyExtractor(),
-        )
+        ) 
 
     def parse(self, sql: str) -> DatabaseSchema:
         statements = sqlglot.parse(sql)
         contexts = self._build_contexts(statements)
 
-        for extractor in self.extractors:
+        for extractor in self._extractors:
             extractor.extract(contexts)
 
         return DatabaseSchema(
@@ -44,7 +44,7 @@ class SchemaParser:
         sql = Path(path).read_text(encoding="utf-8")
         return self.parse(sql)
 
-    def _build_contexts(self, statements):
+    def _build_contexts(self, statements)-> list[CreateTableContext]:
         contexts = []
         for statement in statements:
             if not isinstance(statement, exp.Create):
