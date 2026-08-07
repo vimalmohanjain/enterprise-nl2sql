@@ -1,25 +1,51 @@
 import sqlglot
 from sqlglot import expressions as exp
-from src.schema_graph.models import SchemaMetadata, Table
-
 from pathlib import Path
+from os import PathLike, path
+from .context import CreateTableContext
+from .extractors import (
+    ColumnExtractor,
+    ColumnPrimaryKeyExtractor,
+    TablePrimaryKeyExtractor,
+)
+
+from .models import (
+    DatabaseSchema,
+    Table,
+    Column,
+)
 
 class SchemaParser:
-    """Parses SQL DDL into SchemaMetadata."""
+    def __init__(self):
+        self.extractors = (
+            ColumnExtractor(),
+            ColumnPrimaryKeyExtractor(),
+            TablePrimaryKeyExtractor(),
+        )
 
-    def parse_file(self, file_path: str | Path) -> SchemaMetadata:
-        """Parse a SQL file."""
-        file_path = Path(file_path)
-
-        with file_path.open("r", encoding="utf-8") as f:
-            sql = f.read()
-
-        return self.parse_sql(sql)
-
-    def parse_sql(self, sql: str) -> SchemaMetadata:
-        """Parse SQL string into SchemaMetadata."""
-        schema = SchemaMetadata()
+    def parse(self, sql: str) -> DatabaseSchema:
         statements = sqlglot.parse(sql)
+        contexts = self._build_contexts(statements)
+
+        for extractor in self.extractors:
+            extractor.extract(contexts)
+
+        return DatabaseSchema(
+            tables={
+                ctx.table.name: ctx.table
+                for ctx in contexts
+            }
+        )
+
+    def parse_file(self, path: str | PathLike) -> DatabaseSchema:
+        """
+        Parse a SQL DDL file into a DatabaseSchema.
+        """
+        sql = Path(path).read_text(encoding="utf-8")
+        return self.parse(sql)
+
+    def _build_contexts(self, statements):
+        contexts = []
         for statement in statements:
             if not isinstance(statement, exp.Create):
                 continue
@@ -27,13 +53,12 @@ class SchemaParser:
             table = statement.find(exp.Table)
             if table is None:
                 continue
-            schema.add_table(Table(name=table.name))
-        return schema
 
-if __name__ == "__main__":
-    parser = SchemaParser()
-
-    try:
-        parser.parse_file("data/schemas/company.sql")
-    except NotImplementedError:
-        print("Parser skeleton is working.")
+            contexts.append(
+                CreateTableContext(
+                    create=statement,
+                    table_expr=table,
+                    table=Table(name=table.name),
+                )
+            )
+        return contexts

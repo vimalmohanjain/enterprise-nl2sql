@@ -5,13 +5,15 @@ from dataclasses import dataclass, field
 
 @dataclass(slots=True)
 class Column:
-    """Represents a database column."""
-
     name: str
     data_type: str
+
     nullable: bool = True
+    default: str | None = None
+
     is_primary_key: bool = False
     is_foreign_key: bool = False
+    is_unique: bool = False
 
 
 @dataclass(slots=True)
@@ -40,9 +42,8 @@ class Table:
 
 
 @dataclass(slots=True)
-class SchemaMetadata:
+class DatabaseSchema:
     """Represents an entire database schema."""
-
     tables: dict[str, Table] = field(default_factory=dict)
 
     def add_table(self, table: Table) -> None:
@@ -50,6 +51,9 @@ class SchemaMetadata:
 
     def get_table(self, table_name: str) -> Table | None:
         return self.tables.get(table_name)
+
+    def _iter_(self):
+        return iter(self.tables.values())
 
     @property
     def relationships(self) -> list[ForeignKey]:
