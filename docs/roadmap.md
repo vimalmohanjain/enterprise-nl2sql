@@ -1,29 +1,39 @@
 ✓ Milestone 1
-    Schema Parser
+  Schema Parser
+  - Domain model
+  - SQL parsing
+  - Column extraction
+  - Primary key extraction
+  - Foreign key extraction
+  - Composite foreign keys
+  - Parser tests
 
 → Milestone 2
-    Relationship Extraction
+  Schema Graph
+  - Graph model
+  - NetworkX integration
+  - Table nodes
+  - Column nodes
+  - Relationship edges
+  - Graph tests
 
 Milestone 3
-    Schema Graph
+  Dataset Generation
 
 Milestone 4
-    Dataset Generation
+  Retrieval
 
 Milestone 5
-    Retrieval
+  Prompt Builder
 
 Milestone 6
-    Prompt Builder
+  Baseline Model
 
 Milestone 7
-    Baseline Model
+  Fine-tuning
 
 Milestone 8
-    Fine-tuning
+  Evaluation
 
 Milestone 9
-    Evaluation
-
-Milestone 10
-    Demo
+  Demo

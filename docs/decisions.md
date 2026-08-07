@@ -21,3 +21,21 @@ Reason:
     Open/Closed Principle
     Easy extensibility
     Cleaner parser
+
+ADR-004
+    SchemaGraph is built from DatabaseSchema rather than directly from SQL/sqlglot.
+
+Reason:
+    Keeps the graph independent of SQL parsing.
+    Allows the parser and graph builder to evolve independently.
+    Provides a clean boundary between schema extraction and graph construction.
+
+ADR-005
+    NetworkX is used for the initial schema graph implementation.
+
+Reason:
+    Simple Python API.
+    Supports graph traversal required by the retrieval layer.
+    Mature graph algorithms.
+    Easy to inspect and test.
+    Avoids introducing a graph database before it is necessary.
