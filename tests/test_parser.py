@@ -1,3 +1,4 @@
+from src.schema_graph.graph_builder import GraphBuilder
 from src.schema_graph.parser import SchemaParser
 
 
@@ -20,6 +21,7 @@ def test_parse_table_name():
     schema = parser.parse(sql)
     assert "employees" in schema.tables
 
+
 def test_extract_columns():
     sql = """
     CREATE TABLE employees(
@@ -30,9 +32,7 @@ def test_extract_columns():
     """
 
     parser = SchemaParser()
-
     schema = parser.parse(sql)
-
     employee_table = schema.get_table("employees")
 
     assert employee_table is not None
@@ -48,9 +48,8 @@ def test_extract_columns():
 
     assert employee_table.columns[2].name == "salary"
     assert employee_table.columns[2].data_type == "FLOAT"
-    
+
     assert len(schema.tables) == 1
-    # assert len(schema.get_table("departments").columns) == 2
     assert len(schema.get_table("employees").columns) == 3
 
 
@@ -64,29 +63,27 @@ def test_table_level_primary_key():
     """
 
     parser = SchemaParser()
-
     schema = parser.parse(sql)
-
     employee_table = schema.get_table("employees")
-
     assert employee_table is not None
     assert employee_table.get_column("employee_id").is_primary_key
     assert not employee_table.get_column("name").is_primary_key
 
+
 def test_parse_simple_foreign_key():
     sql = """
-        CREATE TABLE departments (
-            department_id INT PRIMARY KEY
-        );
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY
+    );
 
-        CREATE TABLE employees (
-            employee_id INT PRIMARY KEY,
-            department_id INT,
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        department_id INT,
 
-            FOREIGN KEY (department_id)
-                REFERENCES departments(department_id)
-        );
-        """
+        FOREIGN KEY (department_id)
+            REFERENCES departments(department_id)
+    );
+    """
     parser = SchemaParser()
     schema = parser.parse(sql)
     employee_table = schema.get_table("employees")
@@ -100,32 +97,25 @@ def test_parse_simple_foreign_key():
 
 def test_parse_composite_foreign_key():
     sql = """
-        CREATE TABLE orders (
+    CREATE TABLE orders (
         order_id INT,
         product_id INT,
         PRIMARY KEY(order_id, product_id)
-        );
+    );
 
-        CREATE TABLE shipments (
-            order_id INT,
-            product_id INT,
-
-            FOREIGN KEY (order_id, product_id)
+    CREATE TABLE shipments (
+        order_id INT,
+        product_id INT,
+        FOREIGN KEY (order_id, product_id)
             REFERENCES orders(order_id, product_id)
-        );
-        """
+    );
+    """
     parser = SchemaParser()
     schema = parser.parse(sql)
     shipment_table = schema.get_table("shipments")
     assert shipment_table is not None
     foreign_keys = shipment_table.foreign_keys
     assert len(foreign_keys) == 1
-    assert foreign_keys[0].source_columns == [
-                                "order_id",
-                                "product_id"
-                            ]
+    assert foreign_keys[0].source_columns == ["order_id", "product_id"]
     assert foreign_keys[0].target_table == "orders"
-    assert foreign_keys[0].target_columns == [
-                                "order_id",
-                                "product_id"
-                            ]
+    assert foreign_keys[0].target_columns == ["order_id", "product_id"]
