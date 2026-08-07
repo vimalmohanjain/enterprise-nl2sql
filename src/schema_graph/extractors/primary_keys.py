@@ -27,5 +27,5 @@ class TablePrimaryKeyExtractor(BaseExtractor):
             for identifier in pk.expressions:
                 column = ctx.table.get_column(identifier.name)
                 if column:
-                    column.is_primary_key = True
+                    column.is_primary_key = True           
 

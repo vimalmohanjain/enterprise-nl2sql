@@ -8,6 +8,7 @@ from .extractors import (
     ColumnExtractor,
     ColumnPrimaryKeyExtractor,
     TablePrimaryKeyExtractor,
+    ForeignKeyExtractor,
 )
 
 from .models import (
@@ -17,25 +18,25 @@ from .models import (
 
 class SchemaParser:
     def __init__(self):
-        self._extractors:tuple[BaseExtractor, ...]  = (
+        self._extractors: tuple[BaseExtractor, ...]  = (
             ColumnExtractor(),
             ColumnPrimaryKeyExtractor(),
             TablePrimaryKeyExtractor(),
+            ForeignKeyExtractor(),
         ) 
 
     def parse(self, sql: str) -> DatabaseSchema:
         statements = sqlglot.parse(sql)
-        contexts = self._build_contexts(statements)
+        contexts: list[CreateTableContext] = self._build_contexts(statements)
 
         for extractor in self._extractors:
             extractor.extract(contexts)
 
-        return DatabaseSchema(
-            tables={
-                ctx.table.name: ctx.table
-                for ctx in contexts
-            }
-        )
+        schema = DatabaseSchema()
+        for ctx in contexts:
+            schema.add_table(ctx.table)
+
+        return schema
 
     def parse_file(self, path: str | PathLike) -> DatabaseSchema:
         """
@@ -57,7 +58,6 @@ class SchemaParser:
             contexts.append(
                 CreateTableContext(
                     create=statement,
-                    table_expr=table,
                     table=Table(name=table.name),
                 )
             )

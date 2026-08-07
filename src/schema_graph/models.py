@@ -1,6 +1,6 @@
 from __future__ import annotations
-
 from dataclasses import dataclass, field
+
 
 
 @dataclass(slots=True)
@@ -18,11 +18,13 @@ class Column:
 
 @dataclass(slots=True)
 class ForeignKey:
-    """Represents a foreign key relationship."""
-
-    column: str
-    referenced_table: str
-    referenced_column: str
+    """
+        Represents one FOREIGN KEY constraint.
+        Supports composite keys.
+    """
+    source_columns: list[str]
+    target_table: str
+    target_columns: list[str]
 
 
 @dataclass(slots=True)
@@ -40,6 +42,13 @@ class Table:
                 return column
         return None
 
+    def add_column(self, column: Column) -> None:
+        """Add a column to the table."""
+        self.columns.append(column)
+
+    def add_foreign_key(self, foreign_key: ForeignKey) -> None:
+        """Add a foreign key relationship."""
+        self.foreign_keys.append(foreign_key)
 
 @dataclass(slots=True)
 class DatabaseSchema:
@@ -52,13 +61,14 @@ class DatabaseSchema:
     def get_table(self, table_name: str) -> Table | None:
         return self.tables.get(table_name)
 
-    def _iter_(self):
+    def __iter__(self):
         return iter(self.tables.values())
 
     @property
     def relationships(self) -> list[ForeignKey]:
         """Return all foreign key relationships."""
-        relations = []
-        for table in self.tables.values():
-            relations.extend(table.foreign_keys)
-        return relations
+        return [
+            fk
+            for table in self.tables.values()
+            for fk in table.foreign_keys
+        ]
