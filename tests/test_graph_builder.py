@@ -110,8 +110,15 @@ def test_build_table_without_foreign_keys():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    assert set(graph.nodes) == {"departments"}
-    assert graph.number_of_edges() == 0
+    assert "departments" in graph.nodes
+    assert "departments.department_id" in graph.nodes
+    assert "departments.name" in graph.nodes
+    foreign_key_edges = [
+        (source, target)
+        for source, target, data in graph.edges(data=True)
+        if data.get("relationship") == "FOREIGN_KEY"
+    ]
+    assert foreign_key_edges == []
 
 def test_build_disconnected_tables():
     sql = """
@@ -127,8 +134,17 @@ def test_build_disconnected_tables():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    assert set(graph.nodes) == {"departments", "products"}
-    assert graph.number_of_edges() == 0
+    assert "departments" in graph.nodes
+    assert "products" in graph.nodes
+    assert "departments.department_id" in graph.nodes
+    assert "products.product_id" in graph.nodes
+    foreign_key_edges = [
+        (source, target)
+        for source, target, data in graph.edges(data=True)
+        if data.get("relationship") == "FOREIGN_KEY"
+    ]
+
+    assert foreign_key_edges == []
 
 
 def test_build_relationship_with_columns():
@@ -225,3 +241,37 @@ def test_build_multiple_foreign_keys_to_same_table():
 
     for edge in edge_data:
         assert edge["target_columns"] == ["employee_id"]
+
+def test_build_column_nodes():
+    sql = """
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        department_id INT,
+        salary REAL
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    assert "employees" in graph.nodes
+    assert "employees.employee_id" in graph.nodes
+    assert "employees.department_id" in graph.nodes
+    assert "employees.salary" in graph.nodes
+
+def test_column_node_contains_column_information():
+    sql = """
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        salary REAL
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    node = graph.nodes["employees.salary"]
+
+    print(schema.get_table("employees").get_column("salary"))
+    assert node["name"] == "salary"
+    assert node["data_type"] == "FLOAT"

@@ -42,7 +42,12 @@ class SchemaRetriever:
         for _ in range(max_hops):
             next_tables = set()
             for table in tables_to_visit:
-                next_tables.update(graph.successors(table))
+                for _, target, edge_data in graph.out_edges(
+                    table,
+                    data=True,
+                ):
+                    if edge_data.get("relationship") == "FOREIGN_KEY":
+                        next_tables.add(target)
             next_tables.difference_update(relevant_tables)
             relevant_tables.update(next_tables)
             tables_to_visit = next_tables
@@ -58,6 +63,9 @@ class SchemaRetriever:
                 edge_data = graph.get_edge_data(source_table, target_table)
 
                 for edge in edge_data.values():
+                    if edge.get("relationship") != "FOREIGN_KEY":
+                        continue
+
                     relationships.append(
                         Relationship(
                             source_table=source_table,
