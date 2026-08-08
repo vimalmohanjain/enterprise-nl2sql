@@ -1,5 +1,20 @@
+import networkx as nx
+
 from src.schema_graph.parser import SchemaParser
 from src.schema_graph.graph_builder import GraphBuilder
+
+
+def test_build_returns_networkx_multidigraph():
+    sql = """
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    assert isinstance(graph, nx.MultiDiGraph)
 
 def test_build_table_nodes():
     sql = """
@@ -18,9 +33,8 @@ def test_build_table_nodes():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    assert "departments" in graph
-    assert "employees" in graph
-    assert graph["departments"] == []
+    assert "employees" in graph.nodes
+    assert "departments" in graph.nodes
 
 def test_build_table_relationships():
     sql = """
@@ -39,14 +53,18 @@ def test_build_table_relationships():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    assert graph["departments"] == []
-    assert len(graph["employees"]) == 1
+    assert "departments" in graph.nodes 
+    assert "employees" in graph.nodes
+    assert graph.has_edge("employees", "departments")
+    
+    edges = graph.get_edge_data("employees", "departments")
+    assert len(edges) == 1
 
-    relationship = graph["employees"][0]
-    assert relationship.target_table == "departments"
-    assert relationship.source_columns == ["department_id"]
-    assert relationship.target_columns == ["department_id"]
+    edge = next(iter(edges.values()))
 
+    assert edge["source_columns"] == ["department_id"]
+    assert edge["target_columns"] == ["department_id"]  
+    
 def test_build_multiple_table_relationships():
     sql = """
     CREATE TABLE departments (
@@ -71,15 +89,15 @@ def test_build_multiple_table_relationships():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    assert graph["departments"] == []
-    assert graph["projects"] == []
+    assert "departments" in graph.nodes
+    assert "projects" in graph.nodes
+    assert "employees" in graph.nodes
 
-    relationships = graph["employees"]
-    assert len(relationships) == 2
-    assert {relationship.target_table for relationship in relationships} == {
-        "departments",
-        "projects",
-    }
+    assert graph.has_edge("employees", "departments")
+    assert graph.has_edge("employees", "projects")
+
+    assert len(graph.get_edge_data("employees", "departments")) == 1
+    assert len(graph.get_edge_data("employees", "projects")) == 1
 
 def test_build_table_without_foreign_keys():
     sql = """
@@ -92,9 +110,8 @@ def test_build_table_without_foreign_keys():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    assert graph == {
-        "departments": []
-    }
+    assert set(graph.nodes) == {"departments"}
+    assert graph.number_of_edges() == 0
 
 def test_build_disconnected_tables():
     sql = """
@@ -110,10 +127,9 @@ def test_build_disconnected_tables():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    assert graph == {
-        "departments": [],
-        "products": [],
-    }
+    assert set(graph.nodes) == {"departments", "products"}
+    assert graph.number_of_edges() == 0
+
 
 def test_build_relationship_with_columns():
     sql = """
@@ -132,9 +148,13 @@ def test_build_relationship_with_columns():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    relationship = graph["employees"][0]
-    assert relationship.source_columns == ["department_id"]
-    assert relationship.target_columns == ["department_id"]
+    edges = graph.get_edge_data("employees", "departments")
+    assert len(edges) == 1
+
+    edge = next(iter(edges.values()))
+
+    assert edge["source_columns"] == ["department_id"]
+    assert edge["target_columns"] == ["department_id"]
 
 def test_build_composite_relationship_with_columns():
     sql = """
@@ -155,14 +175,16 @@ def test_build_composite_relationship_with_columns():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    relationship = graph["shipments"][0]
-    assert relationship.target_table == "orders"
-    assert relationship.source_columns == [
+    edges = graph.get_edge_data("shipments", "orders")
+    assert len(edges) == 1
+
+    edge = next(iter(edges.values()))
+    assert edge["source_columns"] == [
         "order_id",
         "product_id",
     ]
 
-    assert relationship.target_columns == [
+    assert edge["target_columns"] == [
         "order_id",
         "product_id",
     ]
@@ -170,9 +192,8 @@ def test_build_composite_relationship_with_columns():
 def test_build_multiple_foreign_keys_to_same_table():
     sql = """
     CREATE TABLE employees (
-        employee_id INT PRIMARY KEY
+    employee_id INT PRIMARY KEY
     );
-
     CREATE TABLE reviews (
         review_id INT PRIMARY KEY,
         manager_id INT,
@@ -189,14 +210,18 @@ def test_build_multiple_foreign_keys_to_same_table():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    relationships = graph["reviews"]
+    edges = graph.get_edge_data("reviews", "employees")
+    assert len(edges) == 2
 
-    assert len(relationships) == 2
+    edge_data = list(edges.values())
 
-    assert relationships[0].source_columns == ["manager_id"]
-    assert relationships[0].target_table == "employees"
-    assert relationships[0].target_columns == ["employee_id"]
+    assert {
+        tuple(edge["source_columns"])
+        for edge in edge_data
+    } == {
+        ("manager_id",),
+        ("reviewer_id",),
+    }
 
-    assert relationships[1].source_columns == ["reviewer_id"]
-    assert relationships[1].target_table == "employees"
-    assert relationships[1].target_columns == ["employee_id"]
+    for edge in edge_data:
+        assert edge["target_columns"] == ["employee_id"]
