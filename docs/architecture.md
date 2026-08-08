@@ -59,3 +59,31 @@ employees
 departments
    │
    └── HAS_COLUMN ─────► department_id
+
+
+   Question:
+"Show employee names and their department names"
+
+                    Retriever
+                        │
+          ┌─────────────┴─────────────┐
+          ▼                           ▼
+      employees                  departments
+      ├─ name                    ├─ name
+      └─ department_id            └─ department_id
+                │
+                └──── FK ──────────┘
+
+RetrievalResult
+├── tables
+│   ├── employees
+│   └── departments
+└── relationships
+    └── employees → departments
+
+SchemaRetriever
+      │
+      ▼
+RetrievalResult
+   ├── tables
+   └── relationships

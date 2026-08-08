@@ -72,3 +72,9 @@ class DatabaseSchema:
             for table in self.tables.values()
             for fk in table.foreign_keys
         ]
+
+@dataclass(slots=True)
+class RetrievalResult:
+    """Represents the result of a schema retrieval operation."""
+    tables: set[str] = field(default_factory=set)
+    relationships: list[ForeignKey] = field(default_factory=list)

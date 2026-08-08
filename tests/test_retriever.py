@@ -23,7 +23,7 @@ def test_retrieve_table_by_name():
     retriever = SchemaRetriever()
     result = retriever.retrieve("Show me employees", schema, graph)
 
-    assert "employees" in result
+    assert "employees" in result.tables
 
 def test_retrieve_table_by_column_name():
     sql = """
@@ -45,7 +45,7 @@ def test_retrieve_table_by_column_name():
     retriever = SchemaRetriever()
     result = retriever.retrieve("What is the salary?", schema, graph)
     print(result)
-    assert "employees" in result
+    assert "employees" in result.tables
 
 def test_retrieve_multiple_tables_by_columns():
     sql = """
@@ -72,7 +72,7 @@ def test_retrieve_multiple_tables_by_columns():
         graph
     )
 
-    assert result == {"employees", "departments"}
+    assert result.tables == {"employees", "departments"}
 
 def test_retrieve_related_table_through_foreign_key():
     sql = """
@@ -96,5 +96,80 @@ def test_retrieve_related_table_through_foreign_key():
     retriever = SchemaRetriever()
     result = retriever.retrieve("Show me employee salary", schema, graph)
 
-    assert "employees" in result
-    assert "departments" in result
+    assert "employees" in result.tables
+    assert "departments" in result.tables
+
+def test_retrieve_preserves_relationship_between_tables():
+    sql = """
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY,
+        name TEXT
+    );
+
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        salary REAL,
+        department_id INT,
+        FOREIGN KEY (department_id)
+            REFERENCES departments(department_id)
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    retriever = SchemaRetriever()
+    result = retriever.retrieve(
+        "Show me employee salary by department",
+        schema,
+        graph,
+    )
+
+    assert "employees" in result.tables
+    assert "departments" in result.tables
+
+    assert graph.has_edge("employees", "departments")
+
+    edge_data = graph.get_edge_data("employees", "departments")
+    edge = next(iter(edge_data.values()))
+
+    assert edge["source_columns"] == ["department_id"]
+    assert edge["target_columns"] == ["department_id"]
+
+def test_retrieve_returns_relationships():
+    sql = """
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY,
+        name TEXT
+    );
+
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        salary REAL,
+        department_id INT,
+        FOREIGN KEY (department_id)
+            REFERENCES departments(department_id)
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    retriever = SchemaRetriever()
+
+    result = retriever.retrieve(
+        "Show me employee salary by department",
+        schema,
+        graph,
+    )
+
+    assert "employees" in result.tables
+    assert "departments" in result.tables
+
+    assert len(result.relationships) == 1
+
+    relationship = result.relationships[0]
+
+    assert relationship.source_columns == ["department_id"]
+    assert relationship.target_table == "departments"
+    assert relationship.target_columns == ["department_id"]
