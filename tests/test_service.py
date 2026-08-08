@@ -67,3 +67,59 @@ def test_service_uses_retrieved_schema_context():
 
     # Unrelated schema should not reach the LLM.
     assert "Table: products" not in client.prompt
+
+from src.schema_graph.ollama_client import OllamaClient
+
+
+class FakeOllamaResponse:
+    def json(self):
+        return {
+            "response": "SELECT salary FROM employees"
+        }
+
+    def raise_for_status(self):
+        pass
+
+
+class FakeOllamaHTTPClient:
+    def __init__(self):
+        self.payload = None
+
+    def post(self, url, json):
+        self.payload = json
+        return FakeOllamaResponse()
+
+
+def test_service_with_ollama_client():
+    ddl = """
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        salary REAL
+    );
+    """
+
+    schema = SchemaParser().parse(ddl)
+
+    http_client = FakeOllamaHTTPClient()
+
+    ollama_client = OllamaClient(
+        http_client=http_client,
+        model="test-model",
+    )
+
+    service = NL2SQLService(
+        client=ollama_client,
+    )
+
+    sql = service.generate(
+        question="What is the salary?",
+        schema=schema,
+    )
+
+    assert sql == "SELECT salary FROM employees"
+
+    prompt = http_client.payload["prompt"]
+
+    assert "Table: employees" in prompt
+    assert "salary" in prompt
+    assert "What is the salary?" in prompt
