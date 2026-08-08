@@ -1,4 +1,5 @@
 from src.schema_graph.ollama_client import OllamaClient
+import pytest
 
 
 class FakeResponse:
@@ -50,3 +51,29 @@ def test_ollama_client_passes_model_and_prompt():
     assert http_client.payload["model"] == "qwen2.5-coder"
     assert http_client.payload["prompt"] == "Test prompt"
     assert http_client.payload["stream"] is False
+
+class FailingResponse:
+    def raise_for_status(self):
+        raise Exception("Connection failed")
+
+    def json(self):
+        return {}
+
+
+class FailingHTTPClient:
+    def post(self, url, json):
+        return FailingResponse()
+
+
+def test_ollama_client_handles_request_failure():
+    client = OllamaClient(
+        http_client=FailingHTTPClient(),
+        model="test-model",
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Ollama request failed",
+    ):
+        client.generate("Test prompt")
+

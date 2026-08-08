@@ -38,3 +38,31 @@ sql = service.generate(
 )
 
 print(sql)
+
+sql = service.generate(
+    question="Show employees with salary greater than 50000",
+    schema=schema,
+)
+
+print(sql)
+
+sql = service.generate(
+    question="What is the average employee salary?",
+    schema=schema,
+)
+
+print(sql)
+
+sql = service.generate(
+    question="Show average salary by department",
+    schema=schema,
+)
+
+print(sql)
+
+sql = service.generate(
+    question="Show employee names and their department names",
+    schema=schema,
+)
+
+print(sql)

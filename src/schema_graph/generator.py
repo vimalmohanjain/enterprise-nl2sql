@@ -16,4 +16,25 @@ class NL2SQLGenerator:
         self.client = client
 
     def generate(self, prompt: str) -> str:
-        return self.client.generate(prompt)
+        response = self.client.generate(prompt)
+
+        return self._clean_sql(response)
+
+    def _clean_sql(self, response: str) -> str:
+        sql = response.strip()
+
+        if sql.startswith("```sql"):
+            sql = sql[len("```sql"):]
+
+        elif sql.startswith("```"):
+            sql = sql[len("```"):]
+
+        if sql.endswith("```"):
+            sql = sql[:-3]
+
+        sql = sql.strip()
+
+        if not sql:
+            raise ValueError("LLM returned an empty response")
+
+        return sql

@@ -1,5 +1,5 @@
 from src.schema_graph.generator import NL2SQLGenerator
-
+import pytest
 
 class FakeLLMClient:
     def generate(self, prompt: str) -> str:
@@ -106,3 +106,56 @@ def test_end_to_end_pipeline_generates_sql():
         "employees.department_id -> departments.department_id"
         in client.prompt
     )
+
+
+def test_generator_strips_markdown_sql_fence():
+    class FakeLLMClient:
+        def generate(self, prompt: str) -> str:
+            return """```sql
+SELECT * FROM employees;
+```"""
+
+    generator = NL2SQLGenerator(FakeLLMClient())
+
+    sql = generator.generate("Test prompt")
+
+    assert sql == "SELECT * FROM employees;"
+
+
+def test_generator_strips_generic_markdown_fence():
+    class FakeLLMClient:
+        def generate(self, prompt: str) -> str:
+            return """```
+SELECT * FROM employees;
+```"""
+
+    generator = NL2SQLGenerator(FakeLLMClient())
+
+    sql = generator.generate("Test prompt")
+
+    assert sql == "SELECT * FROM employees;"
+
+
+def test_generator_strips_whitespace():
+    class FakeLLMClient:
+        def generate(self, prompt: str) -> str:
+            return "   SELECT * FROM employees;   "
+
+    generator = NL2SQLGenerator(FakeLLMClient())
+
+    sql = generator.generate("Test prompt")
+
+    assert sql == "SELECT * FROM employees;"
+
+def test_generator_rejects_empty_response():
+    class FakeLLMClient:
+        def generate(self, prompt: str) -> str:
+            return ""
+
+    generator = NL2SQLGenerator(FakeLLMClient())
+
+    with pytest.raises(
+        ValueError,
+        match="LLM returned an empty response",
+    ):
+        generator.generate("Test prompt")
