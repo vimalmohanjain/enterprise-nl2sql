@@ -4,7 +4,7 @@ from .models import DatabaseSchema
 class GraphBuilder:
     """Build a lightweight table graph from a parsed schema."""
 
-    def build(self, schema: DatabaseSchema) -> dict[str, list[ForeignKey]]:
+    def build(self, schema: DatabaseSchema) -> nx.MultiDiGraph:
         graph: nx.MultiDiGraph = nx.MultiDiGraph()
 
         for table_name in schema.tables:
