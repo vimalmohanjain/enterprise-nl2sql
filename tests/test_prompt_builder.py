@@ -1,3 +1,8 @@
+from src.schema_graph.parser import SchemaParser
+from src.schema_graph.graph_builder import GraphBuilder
+from src.schema_graph.retriever import SchemaRetriever
+from src.schema_graph.context_builder import ContextBuilder
+from src.schema_graph.prompt_builder import PromptBuilder
 from src.schema_graph.models import (
     Column,
     Relationship,
@@ -104,3 +109,110 @@ def test_prompt_requests_sql_only():
     )
 
     assert "SQL only" in prompt
+
+def test_prompt_output_is_deterministic():
+    context = create_context()
+
+    builder = PromptBuilder()
+
+    prompt1 = builder.build(
+        question="Show employee salary by department",
+        context=context,
+    )
+
+    prompt2 = builder.build(
+        question="Show employee salary by department",
+        context=context,
+    )
+
+    assert prompt1 == prompt2
+
+
+def test_prompt_contains_composite_relationship():
+    context = SchemaContext(
+        tables={},
+        relationships=[
+            Relationship(
+                source_table="shipments",
+                target_table="orders",
+                source_columns=["order_id", "product_id"],
+                target_columns=["order_id", "product_id"],
+            )
+        ],
+    )
+
+    prompt = PromptBuilder().build(
+        question="Show shipment order information",
+        context=context,
+    )
+
+    assert (
+        "shipments.order_id -> orders.order_id"
+        in prompt
+    )
+
+    assert (
+        "shipments.product_id -> orders.product_id"
+        in prompt
+    )
+
+
+def test_prompt_handles_empty_context():
+    context = SchemaContext()
+
+    prompt = PromptBuilder().build(
+        question="Show all employees",
+        context=context,
+    )
+
+    assert "Show all employees" in prompt
+    assert "Generate SQL only." in prompt
+
+def test_retrieval_context_prompt_pipeline():
+    sql = """
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY,
+        name TEXT
+    );
+
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        salary REAL,
+        department_id INT,
+        FOREIGN KEY (department_id)
+            REFERENCES departments(department_id)
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    result = SchemaRetriever().retrieve(
+        "Show employee salary by department",
+        schema,
+        graph,
+    )
+
+    context = ContextBuilder().build(
+        result,
+        schema,
+    )
+
+    prompt = PromptBuilder().build(
+        question="Show employee salary by department",
+        context=context,
+    )
+
+    assert "Table: employees" in prompt
+    assert "salary" in prompt
+
+    assert "Table: departments" in prompt
+    assert "department_id" in prompt
+
+    assert (
+        "employees.department_id -> departments.department_id"
+        in prompt
+    )
+
+    assert "Show employee salary by department" in prompt
+    assert "Generate SQL only." in prompt
