@@ -101,3 +101,10 @@ class Relationship:
     target_table: str
     source_columns: list[str]
     target_columns: list[str]
+
+@dataclass(slots=True)
+class DatasetExample:
+    """Represents one natural-language-to-SQL training example."""
+
+    question: str
+    sql: str
