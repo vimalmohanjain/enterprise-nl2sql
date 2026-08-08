@@ -8,10 +8,13 @@ class SchemaRetriever:
         self,
         question: str,
         schema: DatabaseSchema,
-        graph: nx.MultiDiGraph
+        graph: nx.MultiDiGraph,
+        max_hops: int = 1,
     ) -> RetrievalResult:
         """Return table names and relationships relevant to the question."""
-
+        if max_hops < 0:
+            raise ValueError("max_hops must be non-negative")
+        
         question_lower = question.lower()
 
         relevant_tables = {
@@ -26,11 +29,30 @@ class SchemaRetriever:
             )
         }
 
-        for table_name in list(relevant_tables):
-            relevant_tables.update(graph.successors(table_name))
+        tables_to_visit = set(relevant_tables)
+        for _ in range(max_hops):
+            next_tables = set()
+            for table in tables_to_visit:
+                next_tables.update(graph.successors(table))
+            next_tables.difference_update(relevant_tables)
+            relevant_tables.update(next_tables)
+            tables_to_visit = next_tables
+
+            if not tables_to_visit:
+                break
+        print("QUESTION:", question_lower)
+
+        for table in schema:
+            print(
+                "TABLE:",
+                table.name,
+                "COLUMNS:",
+                [column.name for column in table.columns],
+            )
+
+        print("DIRECT MATCHES:", relevant_tables)
 
         relationships: list[ForeignKey] = []
-
         for source_table in relevant_tables:
             for target_table in graph.successors(source_table):
                 if target_table not in relevant_tables:

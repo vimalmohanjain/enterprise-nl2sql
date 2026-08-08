@@ -173,3 +173,85 @@ def test_retrieve_returns_relationships():
     assert relationship.source_columns == ["department_id"]
     assert relationship.target_table == "departments"
     assert relationship.target_columns == ["department_id"]
+
+def test_retrieve_related_tables_with_multiple_hops():
+    sql = """
+    CREATE TABLE locations (
+        location_id INT PRIMARY KEY,
+        city TEXT
+    );
+
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY,
+        name TEXT,
+        location_id INT,
+        FOREIGN KEY (location_id)
+            REFERENCES locations(location_id)
+    );
+
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        salary REAL,
+        department_id INT,
+        FOREIGN KEY (department_id)
+            REFERENCES departments(department_id)
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    retriever = SchemaRetriever()
+
+    result = retriever.retrieve(
+        "Show me employee salary",
+        schema,
+        graph,
+        max_hops=2,
+    )
+
+    assert result.tables == {
+        "employees",
+        "departments",
+        "locations",
+    }
+
+def test_retrieve_related_tables_respects_max_hops():
+    sql = """
+    CREATE TABLE locations (
+        location_id INT PRIMARY KEY,
+        city TEXT
+    );
+
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY,
+        location_id INT,
+        FOREIGN KEY (location_id)
+            REFERENCES locations(location_id)
+    );
+
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        salary REAL,
+        department_id INT,
+        FOREIGN KEY (department_id)
+            REFERENCES departments(department_id)
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    retriever = SchemaRetriever()
+
+    result = retriever.retrieve(
+        "Show me employee salary",
+        schema,
+        graph,
+        max_hops=1,
+    )
+
+    assert result.tables == {
+        "employees",
+        "departments"
+    }
