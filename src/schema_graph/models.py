@@ -89,9 +89,9 @@ class SchemaContext:
 
 @dataclass(slots=True)
 class RetrievalResult:
-    """Represents the result of a schema retrieval operation."""
     tables: set[str] = field(default_factory=set)
-    relationships: list[ForeignKey] = field(default_factory=list)
+    columns: set[str] = field(default_factory=set)
+    relationships: list[Relationship] = field(default_factory=list)
 
 @dataclass(slots=True)
 class Relationship:

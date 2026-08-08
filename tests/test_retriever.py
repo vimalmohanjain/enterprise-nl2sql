@@ -275,3 +275,85 @@ def test_retrieve_table_by_singular_name():
     )
 
     assert "employees" in result.tables
+
+def test_retrieve_tracks_matching_columns():
+    sql = """
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        name TEXT,
+        salary REAL
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    retriever = SchemaRetriever()
+
+    result = retriever.retrieve(
+        "What is the salary?",
+        schema,
+        graph,
+    )
+
+    assert result.columns == {
+        "employees.salary"
+    }
+
+def test_retrieve_tracks_matching_columns_across_tables():
+    sql = """
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        salary REAL
+    );
+
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY,
+        department_name TEXT
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    result = SchemaRetriever().retrieve(
+        "Show salary and department_name",
+        schema,
+        graph,
+    )
+
+    assert result.columns == {
+        "employees.salary",
+        "departments.department_name",
+    }
+
+def test_retrieve_includes_relationship_columns():
+    sql = """
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY,
+        name TEXT
+    );
+
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        salary REAL,
+        department_id INT,
+        FOREIGN KEY (department_id)
+            REFERENCES departments(department_id)
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    result = SchemaRetriever().retrieve(
+        "Show employee salary",
+        schema,
+        graph,
+    )
+
+    assert result.columns == {
+        "employees.salary",
+        "employees.department_id",
+        "departments.department_id",
+    }

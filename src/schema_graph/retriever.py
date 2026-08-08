@@ -18,6 +18,7 @@ class SchemaRetriever:
         question_lower = question.lower()
 
         relevant_tables = set()
+        relevant_columns = set()
 
         for table in schema:
             table_name = table.name.lower()
@@ -37,6 +38,13 @@ class SchemaRetriever:
 
             if table_matches or column_matches:
                 relevant_tables.add(table.name)
+
+            for column in table.columns:
+                if column.name.lower() in question_lower:
+                    relevant_tables.add(table.name)
+                    relevant_columns.add(
+                        f"{table.name}.{column.name}"
+                    )
 
         tables_to_visit = set(relevant_tables)
         for _ in range(max_hops):
@@ -74,5 +82,19 @@ class SchemaRetriever:
                             target_columns=edge["target_columns"],
                         )
                     )
+
+                    for source_column in edge["source_columns"]:
+                        relevant_columns.add(
+                            f"{source_table}.{source_column}"
+                        )
+
+                    for target_column in edge["target_columns"]:
+                        relevant_columns.add(
+                            f"{target_table}.{target_column}"
+                        )
                 
-        return RetrievalResult(tables=relevant_tables, relationships=relationships)
+        return RetrievalResult(
+            tables=relevant_tables,
+            columns=relevant_columns,
+            relationships=relationships,
+        )
