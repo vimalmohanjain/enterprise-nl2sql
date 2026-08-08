@@ -255,3 +255,23 @@ def test_retrieve_related_tables_respects_max_hops():
         "employees",
         "departments"
     }
+
+def test_retrieve_table_by_singular_name():
+    sql = """
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    retriever = SchemaRetriever()
+
+    result = retriever.retrieve(
+        "Show me employee information",
+        schema,
+        graph,
+    )
+
+    assert "employees" in result.tables

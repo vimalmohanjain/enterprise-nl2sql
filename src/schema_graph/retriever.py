@@ -1,5 +1,5 @@
 import networkx as nx
-from .models import DatabaseSchema, ForeignKey, RetrievalResult
+from .models import DatabaseSchema, Relationship, RetrievalResult
 
 class SchemaRetriever:
     """Retrieve schema information from a DatabaseSchema object."""
@@ -17,17 +17,26 @@ class SchemaRetriever:
         
         question_lower = question.lower()
 
-        relevant_tables = {
-            table.name
-            for table in schema
-            if (
-                table.name.lower() in question_lower
-                or any(
-                    column.name.lower() in question_lower
-                    for column in table.columns
+        relevant_tables = set()
+
+        for table in schema:
+            table_name = table.name.lower()
+
+            table_matches = (
+                table_name in question_lower
+                or (
+                    table_name.endswith("s")
+                    and table_name[:-1] in question_lower
                 )
             )
-        }
+
+            column_matches = any(
+                column.name.lower() in question_lower
+                for column in table.columns
+            )
+
+            if table_matches or column_matches:
+                relevant_tables.add(table.name)
 
         tables_to_visit = set(relevant_tables)
         for _ in range(max_hops):
@@ -40,19 +49,8 @@ class SchemaRetriever:
 
             if not tables_to_visit:
                 break
-        print("QUESTION:", question_lower)
 
-        for table in schema:
-            print(
-                "TABLE:",
-                table.name,
-                "COLUMNS:",
-                [column.name for column in table.columns],
-            )
-
-        print("DIRECT MATCHES:", relevant_tables)
-
-        relationships: list[ForeignKey] = []
+        relationships: list[Relationship] = []
         for source_table in relevant_tables:
             for target_table in graph.successors(source_table):
                 if target_table not in relevant_tables:
@@ -61,9 +59,10 @@ class SchemaRetriever:
 
                 for edge in edge_data.values():
                     relationships.append(
-                        ForeignKey(
-                            source_columns=edge["source_columns"],
+                        Relationship(
+                            source_table=source_table,
                             target_table=target_table,
+                            source_columns=edge["source_columns"],
                             target_columns=edge["target_columns"],
                         )
                     )

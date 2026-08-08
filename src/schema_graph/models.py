@@ -74,7 +74,30 @@ class DatabaseSchema:
         ]
 
 @dataclass(slots=True)
+class TableContext:
+    """Schema information for a table selected for LLM context."""
+
+    name: str
+    columns: dict[str, Column] = field(default_factory=dict)
+
+@dataclass(slots=True)
+class SchemaContext:
+    """Schema information prepared for downstream SQL generation."""
+
+    tables: dict[str, TableContext] = field(default_factory=dict)
+    relationships: list[ForeignKey] = field(default_factory=list)
+
+@dataclass(slots=True)
 class RetrievalResult:
     """Represents the result of a schema retrieval operation."""
     tables: set[str] = field(default_factory=set)
     relationships: list[ForeignKey] = field(default_factory=list)
+
+@dataclass(slots=True)
+class Relationship:
+    """Represents a relationship between two database tables."""
+
+    source_table: str
+    target_table: str
+    source_columns: list[str]
+    target_columns: list[str]
