@@ -77,3 +77,15 @@ def test_ollama_client_handles_request_failure():
     ):
         client.generate("Test prompt")
 
+def test_ollama_client_uses_deterministic_temperature():
+    http_client = FakeHTTPClient()
+
+    client = OllamaClient(
+        http_client=http_client,
+        model="qwen2.5-coder:7b",
+    )
+
+    client.generate("Test prompt")
+
+    assert http_client.payload["options"]["temperature"] == 0
+

@@ -5,7 +5,34 @@ from src.schema_graph.models import EvaluationExample
 from src.schema_graph.ollama_client import OllamaClient
 from src.schema_graph.parser import SchemaParser
 from src.schema_graph.service import NL2SQLService
+import sqlite3
 
+connection = sqlite3.connect(":memory:")
+
+connection.executescript(
+    """
+    CREATE TABLE departments (
+        department_id INTEGER PRIMARY KEY,
+        name TEXT
+    );
+
+    CREATE TABLE employees (
+        employee_id INTEGER PRIMARY KEY,
+        name TEXT,
+        salary REAL,
+        department_id INTEGER
+    );
+
+    INSERT INTO departments VALUES
+        (1, 'Engineering'),
+        (2, 'Sales');
+
+    INSERT INTO employees VALUES
+        (1, 'Alice', 70000, 1),
+        (2, 'Bob', 60000, 1),
+        (3, 'Charlie', 45000, 2);
+    """
+)
 
 ddl = """
 CREATE TABLE departments (
@@ -133,14 +160,48 @@ for index, example in enumerate(benchmark, start=1):
 
 evaluator = SQLEvaluator()
 
-result = evaluator.evaluate_batch(
+strict_result = evaluator.evaluate_batch(
     examples=benchmark,
     predictions=predictions,
+)
+
+execution_result = evaluator.evaluate_execution_batch(
+    examples=benchmark,
+    predictions=predictions,
+    connection=connection,
 )
 
 print("\n==============================")
 print("BASELINE RESULTS")
 print("==============================")
-print(f"Total:    {result.total}")
-print(f"Correct:  {result.correct}")
-print(f"Accuracy: {result.accuracy:.2%}")
+
+print("\nStrict SQL Match")
+print(f"Total:    {strict_result.total}")
+print(f"Correct:  {strict_result.correct}")
+print(f"Accuracy: {strict_result.accuracy:.2%}")
+
+print("\nExecution Match")
+print(f"Total:    {execution_result.total}")
+print(f"Correct:  {execution_result.correct}")
+print(f"Accuracy: {execution_result.accuracy:.2%}")
+
+details = evaluator.evaluate_details(
+    examples=benchmark,
+    predictions=predictions,
+    connection=connection,
+)
+
+print("\n==============================")
+print("DETAILED RESULTS")
+print("==============================")
+
+for index, detail in enumerate(details, start=1):
+    strict_status = "PASS" if detail.strict_match else "FAIL"
+    execution_status = "PASS" if detail.execution_match else "FAIL"
+
+    print(
+        f"[{index:02}] "
+        f"Strict: {strict_status:<4} | "
+        f"Execution: {execution_status:<4} | "
+        f"{detail.question}"
+    )

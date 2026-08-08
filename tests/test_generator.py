@@ -159,3 +159,24 @@ def test_generator_rejects_empty_response():
         match="LLM returned an empty response",
     ):
         generator.generate("Test prompt")
+
+def test_generator_extracts_sql_from_explanatory_response():
+    class FakeLLMClient:
+        def generate(self, prompt: str) -> str:
+            fence = chr(96) * 3
+
+            return (
+                "To calculate the average salary, use:\n\n"
+                f"{fence}sql\n"
+                "SELECT AVG(salary) AS average_salary FROM employees;\n"
+                f"{fence}\n\n"
+                "This query returns the average salary."
+            )
+
+    generator = NL2SQLGenerator(FakeLLMClient())
+
+    sql = generator.generate("Test prompt")
+
+    assert sql == (
+        "SELECT AVG(salary) AS average_salary FROM employees;"
+    )

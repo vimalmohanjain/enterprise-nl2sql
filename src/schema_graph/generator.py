@@ -1,4 +1,5 @@
 from typing import Protocol
+import re
 
 
 class LLMClient(Protocol):
@@ -23,16 +24,16 @@ class NL2SQLGenerator:
     def _clean_sql(self, response: str) -> str:
         sql = response.strip()
 
-        if sql.startswith("```sql"):
-            sql = sql[len("```sql"):]
+        fenced_match = re.search(
+            r"```(?:sql)?\s*(.*?)```",
+            sql,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
 
-        elif sql.startswith("```"):
-            sql = sql[len("```"):]
-
-        if sql.endswith("```"):
-            sql = sql[:-3]
-
-        sql = sql.strip()
+        if fenced_match:
+            sql = fenced_match.group(1).strip()
+        else:
+            sql = sql.strip()
 
         if not sql:
             raise ValueError("LLM returned an empty response")

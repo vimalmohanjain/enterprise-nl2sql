@@ -108,3 +108,22 @@ class DatasetExample:
 
     question: str
     sql: str
+
+@dataclass(slots=True)
+class EvaluationExample:
+    question: str
+    expected_sql: str
+
+@dataclass(slots=True)
+class EvaluationResult:
+    total: int
+    correct: int
+    accuracy: float
+
+@dataclass(slots=True)
+class EvaluationDetail:
+    question: str
+    expected_sql: str
+    predicted_sql: str
+    strict_match: bool
+    execution_match: bool
