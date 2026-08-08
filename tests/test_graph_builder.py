@@ -20,6 +20,7 @@ def test_build_table_nodes():
 
     assert "departments" in graph
     assert "employees" in graph
+    assert graph["departments"] == []
 
 def test_build_table_relationships():
     sql = """
@@ -38,8 +39,13 @@ def test_build_table_relationships():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    assert graph["departments"] == {}
-    assert "departments" in graph["employees"]
+    assert graph["departments"] == []
+    assert len(graph["employees"]) == 1
+
+    relationship = graph["employees"][0]
+    assert relationship.target_table == "departments"
+    assert relationship.source_columns == ["department_id"]
+    assert relationship.target_columns == ["department_id"]
 
 def test_build_multiple_table_relationships():
     sql = """
@@ -65,9 +71,15 @@ def test_build_multiple_table_relationships():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    assert graph["departments"] == {}
-    assert graph["projects"] == {}
-    assert set(graph["employees"]) == {"departments", "projects"}
+    assert graph["departments"] == []
+    assert graph["projects"] == []
+
+    relationships = graph["employees"]
+    assert len(relationships) == 2
+    assert {relationship.target_table for relationship in relationships} == {
+        "departments",
+        "projects",
+    }
 
 def test_build_table_without_foreign_keys():
     sql = """
@@ -81,7 +93,7 @@ def test_build_table_without_foreign_keys():
     graph = GraphBuilder().build(schema)
 
     assert graph == {
-        "departments": {}
+        "departments": []
     }
 
 def test_build_disconnected_tables():
@@ -99,8 +111,8 @@ def test_build_disconnected_tables():
     graph = GraphBuilder().build(schema)
 
     assert graph == {
-        "departments": {},
-        "products": {},
+        "departments": [],
+        "products": [],
     }
 
 def test_build_relationship_with_columns():
@@ -120,8 +132,7 @@ def test_build_relationship_with_columns():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    relationship = graph["employees"]["departments"]
-
+    relationship = graph["employees"][0]
     assert relationship.source_columns == ["department_id"]
     assert relationship.target_columns == ["department_id"]
 
@@ -144,8 +155,8 @@ def test_build_composite_relationship_with_columns():
     schema = SchemaParser().parse(sql)
     graph = GraphBuilder().build(schema)
 
-    relationship = graph["shipments"]["orders"]
-
+    relationship = graph["shipments"][0]
+    assert relationship.target_table == "orders"
     assert relationship.source_columns == [
         "order_id",
         "product_id",
@@ -155,3 +166,37 @@ def test_build_composite_relationship_with_columns():
         "order_id",
         "product_id",
     ]
+
+def test_build_multiple_foreign_keys_to_same_table():
+    sql = """
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY
+    );
+
+    CREATE TABLE reviews (
+        review_id INT PRIMARY KEY,
+        manager_id INT,
+        reviewer_id INT,
+
+        FOREIGN KEY (manager_id)
+            REFERENCES employees(employee_id),
+
+        FOREIGN KEY (reviewer_id)
+            REFERENCES employees(employee_id)
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+    graph = GraphBuilder().build(schema)
+
+    relationships = graph["reviews"]
+
+    assert len(relationships) == 2
+
+    assert relationships[0].source_columns == ["manager_id"]
+    assert relationships[0].target_table == "employees"
+    assert relationships[0].target_columns == ["employee_id"]
+
+    assert relationships[1].source_columns == ["reviewer_id"]
+    assert relationships[1].target_table == "employees"
+    assert relationships[1].target_columns == ["employee_id"]
