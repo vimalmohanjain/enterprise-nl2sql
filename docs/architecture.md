@@ -87,3 +87,21 @@ SchemaRetriever
 RetrievalResult
    ├── tables
    └── relationships
+
+
+DatasetExample
+      ↓
+TrainingFormatter
+      ↓
+formatted training records
+      ↓
+split_dataset()
+      ↓
+ train / validation
+      ↓
+QLoRAConfig
+   ↙       ↘
+LoRA       Trainer
+config     config
+      ↓
+QLoRA training
