@@ -39,3 +39,18 @@ Reason:
     Mature graph algorithms.
     Easy to inspect and test.
     Avoids introducing a graph database before it is necessary.
+
+### Training Schema Context Strategy
+
+Training examples use the complete database schema whenever the
+formatted example fits within the configured sequence length.
+
+For oversized examples, the schema is pruned using tables referenced
+by the gold SQL. This is restricted to supervised training-data
+preparation.
+
+Inference-time schema selection continues to use the schema retriever
+and never has access to gold SQL.
+
+This hybrid approach preserves full schema information for most
+examples while preventing truncation of large-schema training records.
