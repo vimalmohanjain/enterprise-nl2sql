@@ -261,24 +261,197 @@ The framework is now capable of comparing the baseline model with future model v
 
 ---
 
-## 8. Next Step: Reproducibility
+## 8. BIRD Evaluation
 
-Before fine-tuning, the Ollama generation configuration should be made deterministic or as reproducible as practical.
+The project now includes a second, substantially larger evaluation
+track based on the BIRD NL2SQL dataset.
 
-This will reduce benchmark variation and provide a stable baseline for comparison.
+The complete BIRD training corpus contains 9,428 examples.
 
-After reproducibility is established, the same benchmark will be run again and recorded as the **controlled baseline**.
+A deterministic 90/10 split using seed 42 produces:
+
+| Split | Examples |
+| --- | ---: |
+| Training | 8,486 |
+| Validation | 942 |
+| Total | 9,428 |
+
+The 942 validation examples are held out from QLoRA training and are
+used for post-training model evaluation.
+
+### 8.1 Evaluation Schema Handling
+
+Training and evaluation deliberately use different schema-selection
+rules where necessary.
+
+During supervised training, oversized examples may use gold SQL to
+prune schemas to fit the configured sequence length.
+
+During held-out evaluation, gold SQL is never used for schema
+selection.
+
+The initial BIRD evaluation uses the complete database schema when
+constructing each prompt.
+
+This avoids evaluation leakage and separates model-generation quality
+from schema-retrieval quality.
+
+### 8.2 Per-Database Execution
+
+Every BIRD evaluation example preserves its `db_id`.
+
+The database resolver maps:
+
+```text
+db_id
+↓
+train_databases/<db_id>/<db_id>.sqlite
+```
+
+The predicted SQL and expected SQL are executed against the same
+database.
+
+This allows execution accuracy to be calculated across the complete
+multi-database validation set.
+
+### 8.3 Evaluation Pipeline
+
+```text
+942 held-out BIRD examples
+│
+▼
+BirdPromptBuilder
+│
+▼
+schema-aware prompt
+│
+▼
+AdapterInference
+│
+▼
+generated SQL
+│
+├──────────────────┐
+▼                  ▼
+Strict Match       Execution Match
+│                  │
+▼                  ▼
+normalized SQL     correct BIRD SQLite DB
+│                  │
+└─────────┬────────┘
+          ▼
+   EvaluationDetail
+```
+
+The same `SQLEvaluator` normalization and execution semantics used by
+the original baseline framework are reused for adapter evaluation.
 
 ---
 
-## 9. Future Fine-Tuned Model Comparison
+## 9. Retrieval Coverage Evaluation
 
-The final comparison will use the same evaluation framework and benchmark.
+Schema retrieval is evaluated separately from SQL generation.
 
-| Model                                  | Strict SQL Accuracy | Execution Accuracy |
-| -------------------------------------- | ------------------: | -----------------: |
-| Qwen2.5-Coder 7B — Initial baseline    |     33.33% – 46.67% |    80.00% – 86.67% |
-| Qwen2.5-Coder 7B — Controlled baseline |                 TBD |                TBD |
-| Fine-tuned model                       |                 TBD |                TBD |
+Across all 9,428 BIRD examples, initial retrieval achieved:
 
-The primary success criterion for fine-tuning will be improvement in **Execution Accuracy**, while strict SQL accuracy and error categories will be retained as secondary diagnostics.
+| Coverage | Examples | Percentage |
+| --- | ---: | ---: |
+| Full | 4,922 | 52.21% |
+| Partial | 2,788 | 29.57% |
+| Zero | 1,718 | 18.22% |
+
+After retrieval improvements:
+
+| Coverage | Examples | Percentage |
+| --- | ---: | ---: |
+| Full | 6,217 | 65.94% |
+| Partial | 1,831 | 19.42% |
+| Zero | 1,380 | 14.64% |
+
+Full retrieval coverage therefore improved by **13.73 percentage
+points**.
+
+This metric is intentionally kept separate from model execution
+accuracy because a generation failure can originate from either:
+
+1. incorrect/incomplete schema retrieval, or
+2. incorrect SQL generation despite sufficient schema context.
+
+---
+
+## 10. Fine-Tuning Evaluation Plan
+
+The initial fine-tuning experiment uses
+`Qwen/Qwen2.5-Coder-7B-Instruct` with QLoRA.
+
+A 200-example smoke test completed successfully before the full
+training run.
+
+The full first-epoch experiment uses:
+
+| Setting | Value |
+| --- | ---: |
+| Training examples | 8,486 |
+| Validation examples | 942 |
+| Epochs | 1 |
+| Training steps | 2,122 |
+| LoRA rank | 16 |
+| LoRA alpha | 32 |
+| LoRA dropout | 0 |
+| Maximum sequence length | 2,048 |
+| Effective batch size | 4 |
+
+The first epoch will be evaluated before any decision is made to
+continue training.
+
+The post-training comparison will include:
+
+| Model | Strict Accuracy | Execution Accuracy |
+| --- | ---: | ---: |
+| Qwen2.5-Coder 7B baseline | TBD | TBD |
+| Qwen2.5-Coder 7B + QLoRA | TBD | TBD |
+
+Execution accuracy is the primary success metric.
+
+Additional epochs will be considered only if held-out evaluation
+indicates that further training is likely to improve generalization.
+
+---
+
+## 11. Current Status
+
+Completed:
+
+- Local 15-question baseline framework
+- Normalized strict SQL evaluation
+- SQLite execution evaluation
+- Per-question evaluation details
+- BIRD ingestion
+- BIRD schema conversion
+- Retrieval coverage measurement
+- Training-schema token profiling
+- Oversized-schema pruning
+- Deterministic 8,486 / 942 split
+- Schema-aware training-record generation
+- QLoRA configuration
+- Unsloth training backend
+- 200-example GPU smoke test
+- Adapter inference abstraction
+- Shared SQL cleanup
+- BIRD validation reconstruction
+- BIRD database resolution
+- Per-database execution evaluator
+- BIRD evaluation pipeline
+- Full-schema held-out prompt builder
+
+In progress:
+
+- Full 8,486-example one-epoch QLoRA training run
+
+Pending:
+
+- Adapter sanity inference after training
+- 942-example held-out BIRD evaluation
+- Base-model versus fine-tuned comparison
+- Error analysis of held-out failures
+- Decision on additional training epochs

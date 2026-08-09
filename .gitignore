@@ -7,3 +7,4 @@ data/external/
 
 # Generated training datasets
 data/training/*.jsonl
+data/training/*.jsonl.gz
