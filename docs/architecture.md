@@ -105,3 +105,20 @@ LoRA       Trainer
 config     config
       ↓
 QLoRA training
+
+
+TrainingPipeline
+      ↓
+records["text"]
+      ↓
+Hugging Face Dataset
+      ↓
+Unsloth loads 4-bit Qwen
+      ↓
+LoRA adapter applied
+      ↓
+TRL SFTTrainer
+      ↓
+trainer.train()
+      ↓
+adapter saved
