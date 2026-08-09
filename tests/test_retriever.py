@@ -1,6 +1,7 @@
 from src.schema_graph.parser import SchemaParser
 from src.schema_graph.retriever import SchemaRetriever
 from src.schema_graph.graph_builder import GraphBuilder
+from src.schema_graph.models import DatabaseSchema, Table, Column, ForeignKey
 
 
 def test_retrieve_table_by_name():
@@ -357,3 +358,59 @@ def test_retrieve_includes_relationship_columns():
         "employees.department_id",
         "departments.department_id",
     }
+
+def test_retriever_expands_reverse_foreign_key_relationship():
+    schema = DatabaseSchema()
+
+    movies = Table(
+        name="movies",
+        columns=[
+            Column(
+                name="movie_id",
+                data_type="integer",
+                is_primary_key=True,
+            ),
+            Column(
+                name="movie_title",
+                data_type="text",
+            ),
+        ],
+    )
+
+    ratings = Table(
+        name="ratings",
+        columns=[
+            Column(
+                name="rating_id",
+                data_type="integer",
+                is_primary_key=True,
+            ),
+            Column(
+                name="movie_id",
+                data_type="integer",
+                is_foreign_key=True,
+            ),
+        ],
+        foreign_keys=[
+            ForeignKey(
+                source_columns=["movie_id"],
+                target_table="movies",
+                target_columns=["movie_id"],
+            )
+        ],
+    )
+
+    schema.add_table(movies)
+    schema.add_table(ratings)
+
+    graph = GraphBuilder().build(schema)
+
+    result = SchemaRetriever().retrieve(
+        question="Show movie titles",
+        schema=schema,
+        graph=graph,
+        max_hops=1,
+    )
+
+    assert "movies" in result.tables
+    assert "ratings" in result.tables

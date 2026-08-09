@@ -56,6 +56,14 @@ class SchemaRetriever:
                 ):
                     if edge_data.get("relationship") == "FOREIGN_KEY":
                         next_tables.add(target)
+                # Also follow incoming FK edges.
+                for source, _, edge_data in graph.in_edges(
+                    table,
+                    data=True,
+                ):
+                    if edge_data.get("relationship") == "FOREIGN_KEY":
+                        next_tables.add(source)
+
             next_tables.difference_update(relevant_tables)
             relevant_tables.update(next_tables)
             tables_to_visit = next_tables

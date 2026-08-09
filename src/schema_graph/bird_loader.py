@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from .models import (
+    BirdTrainingExample,
     Column,
     DatabaseSchema,
     DatasetExample,
@@ -136,3 +137,49 @@ class BirdDatasetLoader:
                 indexes.add(key)
 
         return indexes
+
+    def load_training_examples(
+            self,
+            *,
+            train_file: str | Path,
+            tables_file: str | Path,
+        ) -> list[BirdTrainingExample]:
+            train_file = Path(train_file)
+            tables_file = Path(tables_file)
+
+            training_records = json.loads(
+                train_file.read_text(encoding="utf-8")
+            )
+
+            schema_records = json.loads(
+                tables_file.read_text(encoding="utf-8")
+            )
+
+            schemas_by_db_id = {
+                record["db_id"]: self.convert_schema(record)
+                for record in schema_records
+            }
+
+            examples = []
+
+            for record in training_records:
+                db_id = record["db_id"]
+
+                schema = schemas_by_db_id.get(db_id)
+
+                if schema is None:
+                    raise ValueError(
+                        f"BIRD schema not found for database: {db_id}"
+                    )
+
+                examples.append(
+                    BirdTrainingExample(
+                        db_id=db_id,
+                        question=record["question"],
+                        sql=record["SQL"],
+                        schema=schema,
+                        evidence=record.get("evidence", ""),
+                    )
+                )
+
+            return examples

@@ -216,3 +216,21 @@ def test_retrieval_context_prompt_pipeline():
 
     assert "Show employee salary by department" in prompt
     assert "Generate SQL only." in prompt
+
+def test_prompt_builder_formats_schema_context_only():
+    context = create_context()
+
+    builder = PromptBuilder()
+
+    schema_text = builder.build_schema_context(context)
+
+    assert "Table: employees" in schema_text
+    assert "salary" in schema_text
+    assert "Table: departments" in schema_text
+    assert (
+        "employees.department_id -> departments.department_id"
+        in schema_text
+    )
+
+    assert "Question:" not in schema_text
+    assert "Generate SQL only." not in schema_text

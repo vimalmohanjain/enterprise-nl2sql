@@ -122,3 +122,17 @@ TRL SFTTrainer
 trainer.train()
       ↓
 adapter saved
+
+
+BIRD ingestion
+      ↓
+BirdTrainingExample
+  ├── db_id
+  ├── question
+  ├── SQL
+  ├── evidence
+  └── DatabaseSchema
+      ↓
+training formatting
+      ↓
+QLoRA text

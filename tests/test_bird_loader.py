@@ -183,3 +183,72 @@ def test_bird_loader_handles_composite_primary_keys():
     assert table.get_column("order_id").is_primary_key is True
     assert table.get_column("product_id").is_primary_key is True
     assert table.get_column("quantity").is_primary_key is False
+
+def test_bird_loader_builds_schema_aware_examples(tmp_path):
+    train_file = tmp_path / "train.json"
+    tables_file = tmp_path / "train_tables.json"
+
+    train_file.write_text(
+        json.dumps(
+            [
+                {
+                    "db_id": "company",
+                    "question": "Show employee names",
+                    "evidence": "employee names refers to employees.name",
+                    "SQL": "SELECT name FROM employees",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    tables_file.write_text(
+        json.dumps(
+            [
+                {
+                    "db_id": "company",
+                    "table_names_original": [
+                        "employees",
+                    ],
+                    "column_names_original": [
+                        [-1, "*"],
+                        [0, "employee_id"],
+                        [0, "name"],
+                        [0, "salary"],
+                    ],
+                    "column_types": [
+                        "text",
+                        "integer",
+                        "text",
+                        "integer",
+                    ],
+                    "primary_keys": [1],
+                    "foreign_keys": [],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    loader = BirdDatasetLoader()
+
+    examples = loader.load_training_examples(
+        train_file=train_file,
+        tables_file=tables_file,
+    )
+
+    assert len(examples) == 1
+
+    example = examples[0]
+
+    assert example.db_id == "company"
+    assert example.question == "Show employee names"
+    assert example.sql == "SELECT name FROM employees"
+    assert example.evidence == (
+        "employee names refers to employees.name"
+    )
+
+    employees = example.schema.get_table("employees")
+
+    assert employees is not None
+    assert employees.get_column("name") is not None

@@ -127,3 +127,11 @@ class EvaluationDetail:
     predicted_sql: str
     strict_match: bool
     execution_match: bool
+
+@dataclass(slots=True)
+class BirdTrainingExample:
+    db_id: str
+    question: str
+    sql: str
+    schema: DatabaseSchema
+    evidence: str = ""

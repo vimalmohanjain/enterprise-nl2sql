@@ -105,5 +105,38 @@ def test_context_contains_relationships():
     assert relationship.source_columns == ["department_id"]
     assert relationship.target_columns == ["department_id"]
 
+def test_context_builder_builds_full_schema_context():
+    sql = """
+    CREATE TABLE departments (
+        department_id INT PRIMARY KEY,
+        name TEXT
+    );
 
+    CREATE TABLE employees (
+        employee_id INT PRIMARY KEY,
+        name TEXT,
+        salary REAL,
+        department_id INT,
+        FOREIGN KEY (department_id)
+            REFERENCES departments(department_id)
+    );
+    """
+
+    schema = SchemaParser().parse(sql)
+
+    context = ContextBuilder().build_full(schema)
+
+    assert set(context.tables) == {
+        "departments",
+        "employees",
+    }
+
+    assert "salary" in context.tables["employees"].columns
+
+    assert len(context.relationships) == 1
+
+    relationship = context.relationships[0]
+
+    assert relationship.source_table == "employees"
+    assert relationship.target_table == "departments"
 

@@ -4,15 +4,11 @@ from .models import SchemaContext
 class PromptBuilder:
     """Build an LLM-ready prompt from schema context."""
 
-    def build(
+    def build_schema_context(
         self,
-        question: str,
         context: SchemaContext,
     ) -> str:
-        lines = [
-            "You are given the following database schema:",
-            "",
-        ]
+        lines = []
 
         for table_name, table in context.tables.items():
             lines.append(f"Table: {table_name}")
@@ -47,13 +43,24 @@ class PromptBuilder:
 
             lines.append("")
 
-        lines.extend(
-            [
-                "Question:",
-                question,
-                "",
-                "Generate SQL only.",
-            ]
-        )
+        return "\n".join(lines).strip()
+
+    def build(
+        self,
+        question: str,
+        context: SchemaContext,
+    ) -> str:
+        schema_text = self.build_schema_context(context)
+
+        lines = [
+            "You are given the following database schema:",
+            "",
+            schema_text,
+            "",
+            "Question:",
+            question,
+            "",
+            "Generate SQL only.",
+        ]
 
         return "\n".join(lines)
