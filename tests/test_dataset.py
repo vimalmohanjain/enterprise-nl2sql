@@ -398,3 +398,28 @@ def test_dataset_generator_exports_jsonl(tmp_path):
 
     assert "question" in first_record
     assert "sql" in first_record
+
+def test_dataset_generator_does_not_aggregate_identifier_columns():
+    schema = SchemaParser().parse(
+        """
+        CREATE TABLE employees (
+            employee_id INTEGER PRIMARY KEY,
+            department_id INTEGER,
+            salary INTEGER
+        );
+        """
+    )
+
+    examples = DatasetGenerator().generate(schema)
+
+    sql_queries = [example.sql for example in examples]
+
+    assert "SELECT AVG(employee_id) FROM employees" not in sql_queries
+    assert "SELECT SUM(employee_id) FROM employees" not in sql_queries
+
+    assert "SELECT AVG(department_id) FROM employees" not in sql_queries
+    assert "SELECT SUM(department_id) FROM employees" not in sql_queries
+
+    # salary is a genuine numeric measure and should remain eligible
+    assert "SELECT AVG(salary) FROM employees" in sql_queries
+    assert "SELECT SUM(salary) FROM employees" in sql_queries
