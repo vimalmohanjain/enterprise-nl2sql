@@ -4,6 +4,45 @@ from .models import DatabaseSchema, Relationship, RetrievalResult
 class SchemaRetriever:
     """Retrieve schema information from a DatabaseSchema object."""
 
+    def _normalize_identifier(self, value: str) -> str:
+        return value.lower().replace("_", " ")
+
+
+    def _identifier_tokens(self, value: str) -> list[str]:
+        stopwords = {"in", "of", "the"}
+
+        return [
+            token
+            for token in self._normalize_identifier(value).split()
+            if token not in stopwords
+        ]
+
+
+    def _matches_identifier(
+        self,
+        identifier: str,
+        question_lower: str,
+        question_normalized: str,
+    ) -> bool:
+        identifier_lower = identifier.lower()
+        identifier_normalized = self._normalize_identifier(identifier)
+
+        if identifier_lower in question_lower:
+            return True
+
+        if identifier_normalized in question_normalized:
+            return True
+
+        tokens = self._identifier_tokens(identifier)
+
+        return (
+            len(tokens) > 1
+            and all(token in question_normalized for token in tokens)
+        )
+
+    def _normalize_identifier(self, value: str) -> str:
+        return value.lower().replace("_", " ")
+
     def retrieve(
         self,
         question: str,
@@ -16,23 +55,33 @@ class SchemaRetriever:
             raise ValueError("max_hops must be non-negative")
         
         question_lower = question.lower()
+        question_normalized = self._normalize_identifier(question)
 
         relevant_tables = set()
         relevant_columns = set()
 
         for table in schema:
             table_name = table.name.lower()
+            table_normalized = self._normalize_identifier(table.name)
 
             table_matches = (
-                table_name in question_lower
+                self._matches_identifier(
+                    table.name,
+                    question_lower,
+                    question_normalized,
+                )
                 or (
-                    table_name.endswith("s")
-                    and table_name[:-1] in question_lower
+                    table.name.lower().endswith("s")
+                    and table.name.lower()[:-1] in question_lower
                 )
             )
 
             column_matches = any(
-                column.name.lower() in question_lower
+                self._matches_identifier(
+                    column.name,
+                    question_lower,
+                    question_normalized,
+                )
                 for column in table.columns
             )
 
@@ -40,11 +89,43 @@ class SchemaRetriever:
                 relevant_tables.add(table.name)
 
             for column in table.columns:
-                if column.name.lower() in question_lower:
+                if self._matches_identifier(
+                    column.name,
+                    question_lower,
+                    question_normalized,
+                ):
                     relevant_tables.add(table.name)
                     relevant_columns.add(
                         f"{table.name}.{column.name}"
                     )
+        # Include bridge tables on shortest FK paths between
+        # independently matched tables.
+        seed_tables = set(relevant_tables)
+
+        if len(seed_tables) > 1:
+            fk_graph = nx.Graph()
+
+            for source, target, edge_data in graph.edges(data=True):
+                if edge_data.get("relationship") == "FOREIGN_KEY":
+                    fk_graph.add_edge(source, target)
+
+            seed_list = list(seed_tables)
+
+            for index, source in enumerate(seed_list):
+                for target in seed_list[index + 1:]:
+                    try:
+                        path = nx.shortest_path(
+                            fk_graph,
+                            source=source,
+                            target=target,
+                        )
+                    except (
+                        nx.NetworkXNoPath,
+                        nx.NodeNotFound,
+                    ):
+                        continue
+
+                    relevant_tables.update(path)
 
         tables_to_visit = set(relevant_tables)
         for _ in range(max_hops):

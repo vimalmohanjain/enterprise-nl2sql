@@ -414,3 +414,192 @@ def test_retriever_expands_reverse_foreign_key_relationship():
 
     assert "movies" in result.tables
     assert "ratings" in result.tables
+
+def test_retrieve_includes_bridge_table_between_relevant_tables():
+    schema = DatabaseSchema()
+
+    customers = Table(
+        name="customers",
+        columns=[
+            Column(
+                name="customer_id",
+                data_type="integer",
+                is_primary_key=True,
+            ),
+            Column(
+                name="name",
+                data_type="text",
+            ),
+        ],
+    )
+
+    transactions = Table(
+        name="transactions",
+        columns=[
+            Column(
+                name="transaction_id",
+                data_type="integer",
+                is_primary_key=True,
+            ),
+            Column(
+                name="customer_id",
+                data_type="integer",
+                is_foreign_key=True,
+            ),
+        ],
+        foreign_keys=[
+            ForeignKey(
+                source_columns=["customer_id"],
+                target_table="customers",
+                target_columns=["customer_id"],
+            )
+        ],
+    )
+
+    line_items = Table(
+        name="line_items",
+        columns=[
+            Column(
+                name="transaction_id",
+                data_type="integer",
+                is_foreign_key=True,
+            ),
+            Column(
+                name="quantity",
+                data_type="integer",
+            ),
+        ],
+        foreign_keys=[
+            ForeignKey(
+                source_columns=["transaction_id"],
+                target_table="transactions",
+                target_columns=["transaction_id"],
+            )
+        ],
+    )
+
+    schema.add_table(customers)
+    schema.add_table(transactions)
+    schema.add_table(line_items)
+
+    graph = GraphBuilder().build(schema)
+
+    result = SchemaRetriever().retrieve(
+        question="Show customers and line_items quantity",
+        schema=schema,
+        graph=graph,
+        max_hops=0,
+    )
+
+    assert "customers" in result.tables
+    assert "line_items" in result.tables
+
+    # Not mentioned in the question; required only as the bridge.
+    assert "transactions" in result.tables
+    relationship_pairs = {
+        (r.source_table, r.target_table)
+        for r in result.relationships
+    }
+
+    assert ("transactions", "customers") in relationship_pairs
+    assert ("line_items", "transactions") in relationship_pairs
+
+def test_retrieve_matches_underscored_column_from_natural_language():
+    schema = DatabaseSchema()
+
+    business = Table(
+        name="Business",
+        columns=[
+            Column(
+                name="business_id",
+                data_type="integer",
+                is_primary_key=True,
+            ),
+            Column(
+                name="city",
+                data_type="text",
+            ),
+        ],
+    )
+
+    business_hours = Table(
+        name="Business_Hours",
+        columns=[
+            Column(
+                name="business_id",
+                data_type="integer",
+                is_foreign_key=True,
+            ),
+            Column(
+                name="opening_time",
+                data_type="text",
+            ),
+        ],
+        foreign_keys=[
+            ForeignKey(
+                source_columns=["business_id"],
+                target_table="Business",
+                target_columns=["business_id"],
+            )
+        ],
+    )
+
+    schema.add_table(business)
+    schema.add_table(business_hours)
+
+    graph = GraphBuilder().build(schema)
+
+    result = SchemaRetriever().retrieve(
+        question="List the opening time for businesses in Anthem",
+        schema=schema,
+        graph=graph,
+        max_hops=0,
+    )
+
+    assert "Business_Hours" in result.tables
+    assert "Business_Hours.opening_time" in result.columns
+
+def test_retrieve_matches_compound_table_words_anywhere_in_question():
+    schema = DatabaseSchema()
+
+    sales_in_weather = Table(
+        name="sales_in_weather",
+        columns=[
+            Column(
+                name="store_nbr",
+                data_type="integer",
+            ),
+            Column(
+                name="units",
+                data_type="integer",
+            ),
+        ],
+    )
+
+    weather = Table(
+        name="weather",
+        columns=[
+            Column(
+                name="station_nbr",
+                data_type="integer",
+            ),
+        ],
+    )
+
+    schema.add_table(sales_in_weather)
+    schema.add_table(weather)
+
+    graph = GraphBuilder().build(schema)
+
+    result = SchemaRetriever().retrieve(
+        question=(
+            "What percentage was the total unit sales "
+            "of store 10 to the total sales of its "
+            "weather station?"
+        ),
+        schema=schema,
+        graph=graph,
+        max_hops=0,
+    )
+
+    assert "sales_in_weather" in result.tables
