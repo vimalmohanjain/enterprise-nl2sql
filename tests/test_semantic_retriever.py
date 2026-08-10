@@ -77,3 +77,66 @@ def test_semantic_retriever_adds_top_ranked_table():
     assert "shippers" in result.tables
     assert "orders" in result.tables
     assert "products" not in result.tables
+
+def test_semantic_retriever_exposes_retrieval_diagnostics():
+    schema = DatabaseSchema()
+
+    schema.add_table(
+        Table(
+            name="orders",
+            columns=[
+                Column(
+                    name="order_id",
+                    data_type="integer",
+                )
+            ],
+        )
+    )
+
+    schema.add_table(
+        Table(
+            name="shippers",
+            columns=[
+                Column(
+                    name="company_name",
+                    data_type="text",
+                )
+            ],
+        )
+    )
+
+    graph = GraphBuilder().build(schema)
+
+    class FakeSemanticRanker:
+        def rank(
+            self,
+            question,
+            schema,
+        ):
+            return [
+                "shippers",
+                "orders",
+            ]
+
+    retriever = SemanticSchemaRetriever(
+        base_retriever=SchemaRetriever(),
+        semantic_ranker=FakeSemanticRanker(),
+        top_k=1,
+    )
+
+    result, diagnostics = retriever.retrieve_with_diagnostics(
+        question="Which shipping company is used most often?",
+        schema=schema,
+        graph=graph,
+        max_hops=0,
+    )
+
+    assert diagnostics["semantic_tables"] == [
+        "shippers"
+    ]
+
+    assert "shippers" in diagnostics["final_tables"]
+
+    assert result.tables == set(
+        diagnostics["final_tables"]
+    )

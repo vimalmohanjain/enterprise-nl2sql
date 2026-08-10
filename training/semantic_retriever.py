@@ -22,19 +22,40 @@ class SemanticSchemaRetriever:
         graph,
         max_hops: int = 1,
     ):
+        result, _ = self.retrieve_with_diagnostics(
+            question=question,
+            schema=schema,
+            graph=graph,
+            max_hops=max_hops,
+        )
+
+        return result
+
+    def retrieve_with_diagnostics(
+        self,
+        question,
+        schema,
+        graph,
+        max_hops: int = 1,
+    ):
         ranked_tables = self.semantic_ranker.rank(
             question,
             schema,
         )
 
-        semantic_tables = set(
-            ranked_tables[: self.top_k]
-        )
+        semantic_tables = ranked_tables[: self.top_k]
 
-        return self.base_retriever.retrieve(
+        result = self.base_retriever.retrieve(
             question=question,
             schema=schema,
             graph=graph,
             max_hops=max_hops,
-            extra_tables=semantic_tables,
+            extra_tables=set(semantic_tables),
         )
+
+        diagnostics = {
+            "semantic_tables": list(semantic_tables),
+            "final_tables": sorted(result.tables),
+        }
+
+        return result, diagnostics
