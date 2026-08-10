@@ -656,3 +656,52 @@ def test_retrieve_with_diagnostics_exposes_lexical_seeds():
     assert diagnostics["final_tables"] == sorted(
         result.tables
     )
+
+def test_retriever_does_not_match_tiny_columns_as_substrings():
+    schema = DatabaseSchema()
+
+    schema.add_table(
+        Table(
+            name="statistics",
+            columns=[
+                Column(name="G", data_type="integer"),
+                Column(name="W", data_type="integer"),
+                Column(name="L", data_type="integer"),
+                Column(name="T", data_type="integer"),
+                Column(name="A", data_type="integer"),
+            ],
+        )
+    )
+
+    schema.add_table(
+        Table(
+            name="Master",
+            columns=[
+                Column(name="lastName", data_type="text"),
+                Column(name="coachID", data_type="text"),
+            ],
+        )
+    )
+
+    graph = GraphBuilder().build(schema)
+
+    _, diagnostics = (
+        SchemaRetriever().retrieve_with_diagnostics(
+            question=(
+                "What is the number of players whose last "
+                "name is Green that played in the league "
+                "but not coached?"
+            ),
+            schema=schema,
+            graph=graph,
+            max_hops=0,
+        )
+    )
+
+    assert "statistics.G" not in diagnostics["lexical_columns"]
+    assert "statistics.W" not in diagnostics["lexical_columns"]
+    assert "statistics.L" not in diagnostics["lexical_columns"]
+    assert "statistics.T" not in diagnostics["lexical_columns"]
+    assert "statistics.A" not in diagnostics["lexical_columns"]
+
+    assert "statistics" not in diagnostics["lexical_tables"]
