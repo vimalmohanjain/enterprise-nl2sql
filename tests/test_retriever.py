@@ -603,3 +603,56 @@ def test_retrieve_matches_compound_table_words_anywhere_in_question():
     )
 
     assert "sales_in_weather" in result.tables
+
+def test_retrieve_with_diagnostics_exposes_lexical_seeds():
+    schema = DatabaseSchema()
+
+    schema.add_table(
+        Table(
+            name="customers",
+            columns=[
+                Column(
+                    name="customer_id",
+                    data_type="integer",
+                ),
+                Column(
+                    name="name",
+                    data_type="text",
+                ),
+            ],
+        )
+    )
+
+    schema.add_table(
+        Table(
+            name="orders",
+            columns=[
+                Column(
+                    name="order_id",
+                    data_type="integer",
+                ),
+                Column(
+                    name="customer_id",
+                    data_type="integer",
+                ),
+            ],
+        )
+    )
+
+    graph = GraphBuilder().build(schema)
+
+    retriever = SchemaRetriever()
+
+    result, diagnostics = retriever.retrieve_with_diagnostics(
+        question="Show customer names",
+        schema=schema,
+        graph=graph,
+        max_hops=0,
+    )
+
+    assert "customers" in diagnostics["lexical_tables"]
+    assert "customers.name" in diagnostics["lexical_columns"]
+
+    assert diagnostics["final_tables"] == sorted(
+        result.tables
+    )
