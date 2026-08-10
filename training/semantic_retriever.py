@@ -20,7 +20,7 @@ class SemanticSchemaRetriever:
         question,
         schema,
         graph,
-        max_hops: int = 1,
+        max_hops: int = 0,
     ):
         result, _ = self.retrieve_with_diagnostics(
             question=question,
@@ -36,7 +36,7 @@ class SemanticSchemaRetriever:
         question,
         schema,
         graph,
-        max_hops: int = 1,
+        max_hops: int = 0,
     ):
         ranked_tables = self.semantic_ranker.rank(
             question,
