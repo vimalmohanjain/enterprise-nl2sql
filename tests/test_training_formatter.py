@@ -94,3 +94,48 @@ def test_training_formatter_builds_prompt_and_completion():
 
     # Completion contains only the target SQL.
     assert completion == "SELECT name FROM employees"
+
+def test_training_formatter_builds_plan_completion():
+    example = DatasetExample(
+        question="Show employee names",
+        sql="SELECT name FROM employees",
+    )
+
+    formatter = TrainingFormatter()
+
+    result = formatter.format_with_plan(
+        example,
+        schema_context=(
+            "Table: employees\n"
+            "Columns:\n"
+            "- employee_id INT\n"
+            "- name TEXT"
+        ),
+        plan=(
+            "TABLES: employees\n"
+            "JOINS: NONE\n"
+            "FILTERS: NONE"
+        ),
+    )
+
+    assert (
+        "Generate a structured SQL plan followed by SQL."
+        in result["prompt"]
+    )
+
+    assert "<plan>" in result["completion"]
+    assert "TABLES: employees" in result["completion"]
+    assert "</plan>" in result["completion"]
+
+    assert "<sql>" in result["completion"]
+    assert (
+        "SELECT name FROM employees"
+        in result["completion"]
+    )
+    assert "</sql>" in result["completion"]
+
+    # Gold SQL must still not leak into prompt.
+    assert (
+        "SELECT name FROM employees"
+        not in result["prompt"]
+    )

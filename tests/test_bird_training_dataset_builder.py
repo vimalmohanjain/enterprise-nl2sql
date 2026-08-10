@@ -213,3 +213,89 @@ def test_builder_appends_eos_to_completion():
         record["prompt"]
         + "SELECT name FROM employees"
     )
+
+def test_builder_can_include_structured_sql_plan():
+    schema = DatabaseSchema()
+
+    schema.add_table(
+        Table(
+            name="employees",
+            columns=[
+                Column(
+                    name="employee_id",
+                    data_type="integer",
+                ),
+                Column(
+                    name="name",
+                    data_type="text",
+                ),
+            ],
+        )
+    )
+
+    example = BirdTrainingExample(
+        db_id="company",
+        question="Show employee names",
+        sql="SELECT name FROM employees",
+        schema=schema,
+    )
+
+    builder = BirdTrainingDatasetBuilder(
+        tokenizer=FakeTokenizer(),
+        max_length=2048,
+        include_sql_plan=True,
+    )
+
+    records = builder.build([example])
+
+    record = records[0]
+
+    assert "<plan>" in record["completion"]
+    assert "TABLES: employees" in record["completion"]
+
+    assert "<sql>" in record["completion"]
+    assert (
+        "SELECT name FROM employees"
+        in record["completion"]
+    )
+
+    assert record["completion"].endswith(
+        "<EOS>"
+    )
+
+
+def test_builder_defaults_to_sql_only_completion():
+    schema = DatabaseSchema()
+
+    schema.add_table(
+        Table(
+            name="employees",
+            columns=[
+                Column(
+                    name="name",
+                    data_type="text",
+                )
+            ],
+        )
+    )
+
+    example = BirdTrainingExample(
+        db_id="company",
+        question="Show employee names",
+        sql="SELECT name FROM employees",
+        schema=schema,
+    )
+
+    builder = BirdTrainingDatasetBuilder(
+        tokenizer=FakeTokenizer(),
+        max_length=2048,
+    )
+
+    record = builder.build([example])[0]
+
+    assert "<plan>" not in record["completion"]
+    assert "<sql>" not in record["completion"]
+
+    assert record["completion"] == (
+        "SELECT name FROM employees<EOS>"
+    )
