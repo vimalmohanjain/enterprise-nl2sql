@@ -49,6 +49,7 @@ class SchemaRetriever:
         schema: DatabaseSchema,
         graph: nx.MultiDiGraph,
         max_hops: int = 1,
+        extra_tables: set[str] | None = None,
     ) -> RetrievalResult:
         """Return table names and relationships relevant to the question."""
         if max_hops < 0:
@@ -98,6 +99,10 @@ class SchemaRetriever:
                     relevant_columns.add(
                         f"{table.name}.{column.name}"
                     )
+        # Additional semantic seeds.
+        if extra_tables:
+            relevant_tables.update(extra_tables)
+
         # Include bridge tables on shortest FK paths between
         # independently matched tables.
         seed_tables = set(relevant_tables)
