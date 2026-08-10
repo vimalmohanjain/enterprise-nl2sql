@@ -31,3 +31,8 @@ def test_training_pipeline_prepares_dataset():
         "Table: employees" in record["text"]
         for record in train + validation
     )
+    assert all("prompt" in record for record in train)
+    assert all("completion" in record for record in train)
+
+    assert all("prompt" in record for record in validation)
+    assert all("completion" in record for record in validation)

@@ -9,19 +9,23 @@ class TrainingFormatter:
         example: DatasetExample,
         schema_context: str = "",
     ) -> dict[str, str]:
-        text = (
+        prompt = (
             "You are given the following database schema:\n\n"
             f"{schema_context}\n\n"
             "Question:\n"
             f"{example.question}\n\n"
             "Generate SQL only.\n\n"
             "SQL:\n"
-            f"{example.sql}"
         )
+
+        completion = example.sql
 
         return {
             "instruction": example.question,
             "schema_context": schema_context,
             "output": example.sql,
-            "text": text,
+            "prompt": prompt,
+            "completion": completion,
+            # Keep Experiment 1 compatibility for now.
+            "text": prompt + completion,
         }

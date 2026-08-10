@@ -8,6 +8,8 @@ from training.bird_dataset_builder import BirdTrainingDatasetBuilder
 
 
 class FakeTokenizer:
+    eos_token = "<EOS>"
+
     def encode(
         self,
         text,
@@ -130,6 +132,7 @@ def test_builder_prunes_oversized_schema():
     )
 
     class SmallLimitTokenizer:
+        eos_token = "<EOS>"
         def encode(
             self,
             text,
@@ -153,3 +156,60 @@ def test_builder_prunes_oversized_schema():
 
     assert "Table: unrelated_0" not in text
     assert "Table: unrelated_19" not in text
+
+def test_builder_appends_eos_to_completion():
+    schema = DatabaseSchema()
+
+    schema.add_table(
+        Table(
+            name="employees",
+            columns=[
+                Column(
+                    name="employee_id",
+                    data_type="integer",
+                    is_primary_key=True,
+                ),
+                Column(
+                    name="name",
+                    data_type="text",
+                ),
+            ],
+        )
+    )
+
+    class FakeTokenizerWithEOS:
+        eos_token = "<EOS>"
+
+        def encode(
+            self,
+            text,
+            add_special_tokens=True,
+        ):
+            return text.split()
+
+    example = BirdTrainingExample(
+        db_id="company",
+        question="Show employee names",
+        sql="SELECT name FROM employees",
+        schema=schema,
+    )
+
+    builder = BirdTrainingDatasetBuilder(
+        tokenizer=FakeTokenizerWithEOS(),
+        max_length=2048,
+    )
+
+    records = builder.build([example])
+
+    record = records[0]
+
+    assert record["prompt"].endswith("SQL:\n")
+    assert record["completion"] == (
+        "SELECT name FROM employees<EOS>"
+    )
+
+    # Keep full text available for compatibility/debugging.
+    assert record["text"] == (
+        record["prompt"]
+        + "SELECT name FROM employees"
+    )

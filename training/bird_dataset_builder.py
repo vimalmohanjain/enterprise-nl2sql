@@ -55,6 +55,7 @@ class BirdTrainingDatasetBuilder:
                     example=example,
                     schema=pruned_schema,
                 )
+            record["completion"] += self.tokenizer.eos_token
 
             records.append(record)
 

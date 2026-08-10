@@ -55,6 +55,7 @@ class UnslothTrainingStack:
             **trainer_kwargs,
             max_length=max_seq_length,
             output_dir=output_dir,
+            completion_only_loss=True,
         )
 
         return self._trainer_class(

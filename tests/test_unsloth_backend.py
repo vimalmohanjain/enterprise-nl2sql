@@ -52,27 +52,41 @@ def test_training_stack_builds_datasets():
                 "records": records,
             }
 
-    from training.unsloth_backend import UnslothTrainingStack
-
     stack = UnslothTrainingStack(
         dataset_class=FakeDataset,
     )
 
     train_dataset, validation_dataset = stack.build_datasets(
         train_records=[
-            {"text": "train example"},
+            {
+                "prompt": "Question: train\nSQL:\n",
+                "completion": "SELECT 1",
+            },
         ],
         validation_records=[
-            {"text": "validation example"},
+            {
+                "prompt": "Question: validation\nSQL:\n",
+                "completion": "SELECT 2",
+            },
         ],
     )
 
     assert train_dataset == {
-        "records": [{"text": "train example"}]
+        "records": [
+            {
+                "prompt": "Question: train\nSQL:\n",
+                "completion": "SELECT 1",
+            }
+        ]
     }
 
     assert validation_dataset == {
-        "records": [{"text": "validation example"}]
+        "records": [
+            {
+                "prompt": "Question: validation\nSQL:\n",
+                "completion": "SELECT 2",
+            }
+        ]
     }
 
 def test_training_stack_loads_model_in_4bit():
@@ -209,6 +223,7 @@ def test_training_stack_builds_trainer():
 
     assert calls["config_kwargs"]["max_length"] == 2048
     assert calls["config_kwargs"]["output_dir"] == "adapters/qwen-nl2sql"
+    assert calls["config_kwargs"]["completion_only_loss"] is True
 
 def test_training_stack_runs_training_and_saves_adapter():
     calls = []
